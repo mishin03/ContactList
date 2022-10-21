@@ -53,28 +53,38 @@ class ContactsCaller {
                         CNContactEmailAddressesKey as CNKeyDescriptor
                     ])
                     
-                    var phoneNumbers: Set<String> = []
-                    var names: Set<String> = []
-                    var repeatedNamesSet: Set<String> = []
-                    var repeatedNumbersSet: Set<String> = []
+                    typealias FirstContact = (contact: CNContact, isAdded: Bool)
+                    
+                    var numbers: [String : FirstContact] = [:]
+                    var names: [String : FirstContact] = [:]
+                    var dublicatedNumbers: [CNContact] = []
+                    var dublicateNames: [CNContact] = []
                     var noNames: [CNContact] = []
                     var noNumbers: [CNContact] = []
                     var noEmails: [CNContact] = []
                     
                     for contact in contacts {
-                        for phoneNumber in contact.phoneNumbers {
-                            let number = phoneNumber.value.stringValue.filter("01234567890.".contains)
-                            if phoneNumbers.contains(number) {
-                                repeatedNumbersSet.insert(number)
+                        for phoneNumber in contact.phoneNumbers{
+                            let number = phoneNumber.value.stringValue.filter("0123456789".contains)
+                            if let firstContact = numbers[number] {
+                                if !firstContact.isAdded {
+                                    dublicatedNumbers.append(firstContact.contact)
+                                    numbers[number]?.isAdded = true
+                                }
+                                dublicatedNumbers.append(contact)
                             } else {
-                                phoneNumbers.insert(number)
+                                numbers[number] = (contact, false)
                             }
                         }
                         let name = contact.givenName
-                        if names.contains(name) {
-                            repeatedNamesSet.insert(name)
+                        if let firstContact = names[name] {
+                            if !firstContact.isAdded {
+                                dublicateNames.append(firstContact.contact)
+                                names[name]?.isAdded = true
+                            }
+                            dublicateNames.append(contact)
                         } else {
-                            names.insert(name)
+                            names[name] = (contact, false)
                         }
                         if contact.phoneNumbers.isEmpty {
                             noNumbers.append(contact)
@@ -86,27 +96,12 @@ class ContactsCaller {
                             noEmails.append(contact)
                         }
                     }
+                    
+                    let sortedNames = dublicateNames.sorted { $0.givenName < $1.givenName }
 
-                    var dublicatedNumbers: [CNContact] = []
-                    var repeatedNames: [CNContact] = []
-                    
-                    for contact in contacts {
-                        for phoneNumber in contact.phoneNumbers {
-                            let number = phoneNumber.value.stringValue.filter("01234567890.".contains)
-                            if repeatedNumbersSet.contains(number) {
-                                dublicatedNumbers.append(contact)
-                            }
-                        }
-                        if repeatedNamesSet.contains(contact.givenName) {
-                            repeatedNames.append(contact)
-                        }
-                    }
-                    
-                    let dublicateNames = repeatedNames.sorted { $0.givenName < $1.givenName }
-                    
                     self.resultsContact[.allContacts] = contacts
                     self.resultsContact[.dublicateNumbers] = dublicatedNumbers
-                    self.resultsContact[.dublicateNames] = dublicateNames
+                    self.resultsContact[.dublicateNames] = sortedNames
                     self.resultsContact[.noName] = noNames
                     self.resultsContact[.noNumber] = noNumbers
                     self.resultsContact[.noEmail] = noEmails
